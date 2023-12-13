@@ -43,13 +43,14 @@ def tracking(video_path,):
     frames = []
     i = 0
     counter, fps, elasped = 0,0,0
-    start_time = time.pref_counter()
+    start_time = time.process_time()
 
     while cap.isOpened():
+        h,w = 0,0
         ret, frame = cap.read()
 
         if ret:
-            frame = cv2.resize(frame, (1280,720))
+            frame = cv2.resize(frame)
 
             og_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame = og_frame.copy()
@@ -105,7 +106,7 @@ def tracking(video_path,):
                     text_color = (0,0,0)
                     cv2.putText(og_frame,f'{class_name} - {str(track_id)}',(int(x1)+10,int(y1) - 5),cv2.FONT_HERSHEY_SIMPLEX,0.5, text_color,2)
                 
-                current_time = time.pref_counter()
+                current_time = time.process_time()
                 elasped = (current_time - start_time)
                 counter +=1
                 if elasped > 1:
