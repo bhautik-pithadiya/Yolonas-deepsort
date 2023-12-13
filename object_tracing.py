@@ -21,7 +21,7 @@ def detection_img(img_path):
 
 def loading_models():
     deep_sort_weights = 'deep_sort/deep/checkpoint/ckpt.t7'
-    tracker = DeepSort(weights_path=deep_sort_weights, max_dist=0.2, min_confidence=0.3, nms_max_overlap=0.5, max_iou_distance=0.7, max_age=70,)    
+    tracker = DeepSort(model_path=deep_sort_weights, max_dist=0.2, min_confidence=0.3, nms_max_overlap=0.5, max_iou_distance=0.7, max_age=70)    
     yolo_nas = super_gradients.training.models.get("yolo_nas_s", pretrained_weights="coco")
     return tracker,yolo_nas
 
