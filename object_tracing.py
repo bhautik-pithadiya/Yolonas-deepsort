@@ -4,6 +4,7 @@ import cv2
 import torch.backends.cudnn as cudnn
 from PIL import Image
 import numpy as np
+import json
 
 import super_gradients
 from super_gradients.training import models
@@ -13,11 +14,64 @@ from deep_sort.utils.parser import get_config
 from deep_sort.deep_sort import DeepSort
 from deep_sort.sort.tracker import Tracker
 
-def detection_img(img_path):
+def detection_in_img(img_path):
     # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    yolo_nas = super_gradients.training.models.get("yolo_nas_s", pretrained_weights="coco")
-    model_predictions  = yolo_nas.predict(img_path).show()
-    # out.save('out.jpg')
+    yolo_nas = models.get("yolo_nas_s", pretrained_weights="coco")
+    model_predictions  = list(yolo_nas.predict(img_path,conf = 0.5,)._images_prediction_lst)
+
+    bboxes_xyxy = model_predictions[0].prediction.bboxes_xyxy.tolist()
+    confidence = model_predictions[0].prediction.confidence.tolist()
+    labels = model_predictions[0].prediction.labels.tolist()
+    lengths = [len(labels),len(confidence),len(bboxes_xyxy)] 
+    labels = [int(label) for label in labels]
+
+    person_bboxes_xyxy = [bbox for i, bbox in enumerate(bboxes_xyxy) if labels[i] == 0]
+    person_confidence = [conf for i, conf in enumerate(confidence) if labels[i] == 0]
+    person_labels = [label for label in labels if label == 0]
+
+    model_predictions_details = {}
+    model_predictions_details['bboxes_xyxy'] = bboxes_xyxy[0]
+    model_predictions_details['confidence'] = confidence[0]
+    model_predictions_details['label'] = labels[0]
+    model_predictions_details['lengths'] = lengths
+
+    with open('model_predictions_details.json', 'w') as json_file:
+        json.dump(model_predictions_details, json_file)
+    
+    model_predictions_details_for_person = {}
+    model_predictions_details_for_person['bboxes_xyxy'] = person_bboxes_xyxy
+    model_predictions_details_for_person['confidence'] = person_confidence
+    model_predictions_details_for_person['label'] = person_labels
+    model_predictions_details_for_person['lengths'] = [len(person_labels),len(person_confidence),len(person_bboxes_xyxy)]
+    
+    with open('model_predictions_details_for_person.json', 'w') as json_file:
+        json.dump(model_predictions_details_for_person, json_file)
+    
+    # plot the filtered person predictions, confidence , label on the image
+    img = cv2.imread(img_path)
+    for bbox in person_bboxes_xyxy:
+        x1,y1,x2,y2 = bbox
+        color = (0,255,0)
+        cv2.rectangle(img,(int(x1),int(y1)),(int(x2),int(y2)),color,2)
+        text_color = (0,0,0)
+        cv2.putText(img,f'{str(person_labels[0])}',(int(x1)+10,int(y1) - 5),cv2.FONT_HERSHEY_SIMPLEX,0.5, text_color,2)
+        
+    # save the image
+    cv2.imwrite('output/out.jpg',img)
+    cv2.imshow('Image',img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    
+
+
+
+
+
+
+
+
+
+    # model_predictions.save(f'D:\Ksquarez\Yolonas and Deep Sort\output\out.jpg')
 
 def loading_models():
     deep_sort_weights = 'deep_sort/deep/checkpoint/ckpt.t7'
@@ -37,7 +91,7 @@ def tracking(video_path,):
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    output_path = r'output/output.mp4'
+    output_path = r'output/output_1.mp4'
     out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
     frames = []
@@ -50,7 +104,7 @@ def tracking(video_path,):
         ret, frame = cap.read()
 
         if ret:
-            frame = cv2.resize(frame)
+            # frame = cv2.resize(frame)
 
             og_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame = og_frame.copy()
@@ -64,20 +118,21 @@ def tracking(video_path,):
                 bboxes_xyxy = detection_pred[0].prediction.bboxes_xyxy.tolist()
                 confidence = detection_pred[0].prediction.confidence.tolist()
 
-                lables = [label for label in detection_pred[0].prediction.labels.tolist() if label == 0]
-                class_names = ['person']
+                labels = detection_pred[0].prediction.labels.tolist()
+                class_name = ['person']
 
-                labels = [int(label) for label in lables]
-                class_name = [class_names[label] for label in labels]
+                person_bboxes_xyxy = [bbox for i, bbox in enumerate(bboxes_xyxy) if labels[i] == 0]
+                person_confidence = [conf for i, conf in enumerate(confidence) if labels[i] == 0]
+                person_labels = [label for label in labels if label == 0]
 
                 bboxes_xywh = []
-                for bbox in bboxes_xyxy:
+                for bbox in person_bboxes_xyxy:
                     bbox_xywh = [bbox[0], bbox[1], bbox[2] - bbox[0], bbox[3] - bbox[1]]
                     bboxes_xywh.append(bbox_xywh)
                 
                 bboxes_xywh = np.array(bboxes_xywh)
 
-                tracks = tracker.update(bboxes_xywh, confidence,og_frame)
+                tracks = tracker.update(bboxes_xywh, person_confidence,og_frame)
 
                 for track in tracker.tracker.tracks:
                     if not track.is_confirmed() or track.time_since_update > 1:
@@ -85,7 +140,7 @@ def tracking(video_path,):
                     track_id = track.track_id
                     hits = track.hits
                     bbox = track.to_tlbr()
-                    class_name = track.get_class()
+                    # class_name = track.get_class()
                     x1,y1,x2,y2 =bbox
                     w = x2 -x1
                     h = y2 -y1
@@ -104,7 +159,7 @@ def tracking(video_path,):
                     cv2.rectangle(og_frame,(int(x1),int(y1)),(int(x1+w),int(y1+h)),color,2)
 
                     text_color = (0,0,0)
-                    cv2.putText(og_frame,f'{class_name} - {str(track_id)}',(int(x1)+10,int(y1) - 5),cv2.FONT_HERSHEY_SIMPLEX,0.5, text_color,2)
+                    cv2.putText(og_frame,f'{class_name[0]} - {str(track_id)}',(int(x1)+10,int(y1) - 5),cv2.FONT_HERSHEY_SIMPLEX,0.5, text_color,2)
                 
                 current_time = time.process_time()
                 elasped = (current_time - start_time)
@@ -125,11 +180,12 @@ def tracking(video_path,):
                 
                 frames.append(og_frame)
 
+                
                 out.write(cv2.cvtColor(og_frame, cv2.COLOR_RGB2BGR))
 
-                cv2.imshow('Video', og_frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                # cv2.imshow('Video', og_frame)
+                # if cv2.waitKey(1) & 0xFF == ord('q'):
+                #     break
                 
     
     cap.release()
@@ -139,9 +195,12 @@ def tracking(video_path,):
 
 
 if __name__ == '__main__':
-    deep_sort_weights = 'deep_sort/deep/checkpoint/ckpt.t7'
+
+    deep_sort_weights = r'deep_sort/deep/checkpoint/ckpt.t7'
     #change this
-    video_path = r'D:/Ksquarez/Yolonas and Deep Sort/images/car.jpg'
+    video_path = r'inference/clip.mp4'
     tracking(video_path)
     
-
+    # for Image
+    # img_path = r"images/office.PNG"
+    # detection_in_img(img_path)
