@@ -158,7 +158,7 @@ def tracking(video_path,):
 
                     cv2.rectangle(og_frame,(int(x1),int(y1)),(int(x1+w),int(y1+h)),color,2)
 
-                    text_color = (0,0,0)
+                    text_color = (255,0,0)
                     cv2.putText(og_frame,f'{class_name[0]} - {str(track_id)}',(int(x1)+10,int(y1) - 5),cv2.FONT_HERSHEY_SIMPLEX,0.5, text_color,2)
                 
                 current_time = time.process_time()
