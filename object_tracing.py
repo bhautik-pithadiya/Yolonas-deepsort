@@ -76,7 +76,7 @@ def detection_in_img(img_path):
 def loading_models():
     deep_sort_weights = 'deep_sort/deep/checkpoint/ckpt.t7'
     tracker = DeepSort(model_path=deep_sort_weights, max_dist=0.2, min_confidence=0.3, nms_max_overlap=0.5, max_iou_distance=0.7, max_age=70,use_cuda=False)    
-    yolo_nas = super_gradients.training.models.get("yolo_nas_s", pretrained_weights="coco", device='cpu')
+    yolo_nas = super_gradients.training.models.get("yolo_nas_s", pretrained_weights="coco")
     return tracker,yolo_nas
 
 def tracking(video_path,):
@@ -91,7 +91,7 @@ def tracking(video_path,):
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    output_path = r'output/output_1.mp4'
+    output_path = r'output/output_of_5s_clip.mp4'
     out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
 
     frames = []
@@ -199,7 +199,7 @@ if __name__ == '__main__':
 
     deep_sort_weights = r'deep_sort/deep/checkpoint/ckpt.t7'
     #change this
-    video_path = r'inference/clip.mp4'
+    video_path = r'inference/clip_of_5s.mp4'
     tracking(video_path)
     
     # for Image
